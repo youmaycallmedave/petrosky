@@ -33,7 +33,7 @@ if (cardsCount > 0) {
 							wrap.className = 'fetures_item-line-wrap';
 							const line = document.createElement('div');
 							line.className = 'fetures_item-line';
-					line.style.maxHeight = height + 'px';
+						line.style.maxHeight = height + 'px';
 							const ic = document.createElement('div');
 							ic.className = 'fetures_item-line-ic';
 							wrap.appendChild(line);
@@ -42,7 +42,7 @@ if (cardsCount > 0) {
 						} else {
 							const line = document.createElement('div');
 							line.className = 'fetures_item-line';
-							line.style.height = height + 'px';
+							line.style.maxHeight = height + 'px';
 							list.appendChild(line);
 						}
 					}
