@@ -2,8 +2,8 @@ gsap.to(".header_scroll-bg", {
   opacity: 1,
   scrollTrigger: {
     trigger: "body",
-    start: "10px top",
-    end: "11px top",
+    start: "1px top",
+    end: "2px top",
     toggleActions: "play none none reverse",
     scrub: true
   }
