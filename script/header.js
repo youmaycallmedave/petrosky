@@ -12,19 +12,6 @@ gsap.to(".header_scroll-bg", {
 document.addEventListener("DOMContentLoaded", () => {
 	gsap.registerPlugin(ScrollTrigger);
 
-	document.querySelectorAll(".navbar_menu-dropdown").forEach((dropdown) => {
-		dropdown.addEventListener("mouseenter", () => {
-			if (window.innerWidth >= 992) {
-				document.body.style.overflow = "hidden";
-			}
-		});
-		dropdown.addEventListener("mouseleave", () => {
-			if (window.innerWidth >= 992) {
-				document.body.style.overflow = "";
-			}
-		});
-	});
-
 	document.querySelectorAll(".header-component").forEach((component) => {
 		if (component.hasAttribute("data-nav-1")) return;
 		component.setAttribute("data-nav-1", "");
