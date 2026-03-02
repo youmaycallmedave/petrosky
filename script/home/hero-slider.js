@@ -4,6 +4,7 @@
 
   const swiper = new Swiper(swiperBlock.querySelector(".swiper"), {
     slidesPerView: "auto",
+    allowTouchMove: false,
     followFinger: true,
     freeMode: false,
     slideToClickedSlide: false,
