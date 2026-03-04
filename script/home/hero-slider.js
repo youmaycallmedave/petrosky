@@ -29,12 +29,12 @@
       onlyInViewport: true,
     },
 
-    /*
+    /**/
     autoplay: {
       delay: 3000,
       disableOnInteraction: false,
     },
-    */
+    
 
     navigation: {
       nextEl: swiperBlock.querySelector("[data-swiper-next]"),
