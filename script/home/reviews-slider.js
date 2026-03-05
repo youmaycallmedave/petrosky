@@ -27,5 +27,14 @@
       prevEl: swiperBlock.querySelector("[data-swiper-prev]"),
     },
 
+    a11y: {
+      enabled: true,
+      prevSlideMessage: 'Previous slide',
+      nextSlideMessage: 'Next slide',
+      firstSlideMessage: 'This is the first slide',
+      lastSlideMessage: 'This is the last slide',
+      paginationBulletMessage: 'Go to slide {{index}}',
+    },
+
   });
 }
