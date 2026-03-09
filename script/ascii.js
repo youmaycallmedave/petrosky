@@ -20,7 +20,7 @@ returnSpeed: 5,
 friction: 75,
 };
 
-const ASCII_FULL = '@#.+ ';
+const ASCII_FULL = '@#W$9876543210?!abc;:+=-,._ ';
 
 let scrollVelocity = 0;
 let lastScrollY = window.scrollY;
