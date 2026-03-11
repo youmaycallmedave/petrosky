@@ -1,4 +1,3 @@
-<script>
 (function () {
   const CFG = {
     fontSize: 7,
@@ -362,4 +361,3 @@
   if (document.readyState === 'complete') init();
   else window.addEventListener('load', init);
 })();
-</script>
