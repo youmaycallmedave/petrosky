@@ -6,14 +6,14 @@
     contrast: 51,
     alphaThresh: 110,
     invert: false,
-    cursorRadius: 180,
-    cursorForce: 3,
+    cursorRadius: 280,
+    cursorForce: 1.2,
     idleTimeout: 200,
-    scrollForce: 20,
+    scrollForce: 12,
     scrollDecay: 85,
-    scrollMult: 2,
-    returnSpeed: 6,
-    friction: 80,
+    scrollMult: 1.5,
+    returnSpeed: 5,
+    friction: 87,
   };
 
   const ASCII_FULL = '@#W$9876543210?!abc;:+=-,._ ';
@@ -27,6 +27,7 @@
     const cur = window.scrollY;
     scrollVelocity += (cur - lastScrollY) * 0.6;
     lastScrollY = cur;
+    startLoop();
   }, { passive: true });
 
   class Particle {
@@ -47,7 +48,6 @@
       this.x += this.vx;
       this.y += this.vy;
     }
-    // Чи рухається частинка (щоб пропускати idle кадри)
     isMoving() {
       return Math.abs(this.vx) > 0.05 || Math.abs(this.vy) > 0.05 ||
              Math.abs(this.x - this.ox) > 0.05 || Math.abs(this.y - this.oy) > 0.05;
@@ -88,16 +88,30 @@
     const imgEl = wrap.querySelector('.ascii_image');
     if (!canvas || !imgEl) return null;
     const ctx = canvas.getContext('2d');
+    const r = wrap.getBoundingClientRect();
     return {
       canvas, ctx, imgEl, wrap,
       particles: [],
+      alphaGroups: [],
       fontColor: parseFontColor(canvas),
       mouse: { x: -9999, y: -9999, active: false },
       mouseIdleTimer: null,
       scaleX: 1, scaleY: 1,
-      visible: false,   // IntersectionObserver
-      needsDraw: true,  // dirty flag
+      canvasRect: null,
+      visible: r.top < window.innerHeight && r.bottom > 0,
+      needsDraw: true,
     };
+  }
+
+  function buildAlphaGroups(state) {
+    const { r, g, b } = state.fontColor;
+    const map = new Map();
+    for (const p of state.particles) {
+      const key = p.alpha.toFixed(2);
+      if (!map.has(key)) map.set(key, { fillStyle: `rgba(${r},${g},${b},${key})`, particles: [] });
+      map.get(key).particles.push(p);
+    }
+    state.alphaGroups = Array.from(map.values());
   }
 
   function processImage(state, img) {
@@ -113,11 +127,8 @@
     if (!natW || !natH) return;
 
     const wrapRect = state.wrap.getBoundingClientRect();
-    const areaW = wrapRect.width;
-    const areaH = wrapRect.height;
-
-    const maxCols = Math.floor(areaW / charW);
-    const maxRows = Math.floor(areaH / lineH);
+    const maxCols = Math.floor(wrapRect.width / charW);
+    const maxRows = Math.floor(wrapRect.height / lineH);
     const imgCols = Math.ceil(natW / charW);
     const imgRows = Math.ceil(natH / lineH);
 
@@ -143,12 +154,12 @@
     state.canvas.width = gridW;
     state.canvas.height = gridH;
 
-    const newRect = state.canvas.getBoundingClientRect();
-    state.scaleX = gridW / (newRect.width || 1);
-    state.scaleY = gridH / (newRect.height || 1);
+    state.canvasRect = state.canvas.getBoundingClientRect();
+    state.scaleX = gridW / (state.canvasRect.width || 1);
+    state.scaleY = gridH / (state.canvasRect.height || 1);
 
-    // Кешуємо fillStyle рядки по унікальних alpha значеннях
-    state.alphaCache = {};
+    state.ctx.font = `${CFG.fontSize}px 'JetBrains Mono', monospace`;
+    state.ctx.textBaseline = 'top';
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -162,6 +173,7 @@
       }
     }
 
+    buildAlphaGroups(state);
     state.needsDraw = true;
     startLoop();
   }
@@ -202,32 +214,35 @@
     img.src = src;
   }
 
-  // ── Global mouse ──
   window.addEventListener('mousemove', (e) => {
     for (let i = 0; i < instances.length; i++) {
       const state = instances[i];
       if (!state.visible) continue;
-      const rect = state.canvas.getBoundingClientRect();
+      const rect = state.canvasRect;
+      if (!rect) continue;
+
       if (e.clientX >= rect.left && e.clientX <= rect.right &&
           e.clientY >= rect.top  && e.clientY <= rect.bottom) {
         state.mouse.x = (e.clientX - rect.left) * state.scaleX;
         state.mouse.y = (e.clientY - rect.top)  * state.scaleY;
         state.mouse.active = true;
         state.needsDraw = true;
+        startLoop();
         clearTimeout(state.mouseIdleTimer);
         state.mouseIdleTimer = setTimeout(() => {
           state.mouse.active = false;
           state.needsDraw = true;
+          startLoop();
         }, CFG.idleTimeout);
       } else if (state.mouse.active) {
         state.mouse.active = false;
         state.mouse.x = -9999; state.mouse.y = -9999;
         state.needsDraw = true;
+        startLoop();
       }
     }
   }, { passive: true });
 
-  // ── Shared RAF loop ──
   function startLoop() {
     if (!rafId) rafId = requestAnimationFrame(animate);
   }
@@ -241,33 +256,23 @@
 
     for (let s = 0; s < instances.length; s++) {
       const state = instances[s];
-
-      // Пропускаємо невидимі секції повністю
       if (!state.visible) continue;
 
-      const { ctx, canvas, particles, mouse, fontColor } = state;
+      const { ctx, canvas, particles, alphaGroups, mouse } = state;
 
-      // Перевіряємо чи є рух у частинок
       let hasMoving = false;
       for (let i = 0; i < particles.length; i++) {
         if (particles[i].isMoving()) { hasMoving = true; break; }
       }
 
-      const needsUpdate = state.needsDraw || hasMoving || hasScroll || mouse.active;
-      if (!needsUpdate) continue;
+      if (!state.needsDraw && !hasMoving && !hasScroll && !mouse.active) continue;
 
       anyNeedsDraw = true;
       state.needsDraw = false;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.font = `${CFG.fontSize}px 'JetBrains Mono', monospace`;
-      ctx.textBaseline = 'top';
 
-      const { r, g, b } = fontColor;
-
-      // Групуємо частинки по alpha для мінімізації зміни fillStyle
-      // Замість N викликів fillStyle — кілька груп
-      const groups = {};
+      const radSq = CFG.cursorRadius * CFG.cursorRadius;
 
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
@@ -276,14 +281,11 @@
           const dx = p.x - mouse.x;
           const dy = p.y - mouse.y;
           const dSq = dx * dx + dy * dy;
-          const rad = CFG.cursorRadius;
-          if (dSq < rad * rad && dSq > 0) {
+          if (dSq < radSq && dSq > 0) {
             const d = Math.sqrt(dSq);
-            const f = (rad - d) / rad;
-            const a = Math.atan2(dy, dx);
-            const str = f * f * CFG.cursorForce * 0.5;
-            p.vx += Math.cos(a) * str;
-            p.vy += Math.sin(a) * str;
+            const f = ((CFG.cursorRadius - d) / CFG.cursorRadius) * CFG.cursorForce * 0.4;
+            p.vx += (dx / d) * f;
+            p.vy += (dy / d) * f;
           }
         }
 
@@ -299,26 +301,18 @@
         }
 
         p.update();
-
-        // Округлюємо alpha до 2 знаків для групування
-        const alphaKey = p.alpha.toFixed(2);
-        if (!groups[alphaKey]) groups[alphaKey] = [];
-        groups[alphaKey].push(p);
       }
 
-      // Малюємо по групах — один fillStyle на групу
-      const keys = Object.keys(groups);
-      for (let k = 0; k < keys.length; k++) {
-        const alpha = keys[k];
-        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
-        const group = groups[alpha];
-        for (let i = 0; i < group.length; i++) {
-          ctx.fillText(group[i].char, group[i].x, group[i].y);
+      for (let k = 0; k < alphaGroups.length; k++) {
+        const group = alphaGroups[k];
+        ctx.fillStyle = group.fillStyle;
+        const pts = group.particles;
+        for (let i = 0; i < pts.length; i++) {
+          ctx.fillText(pts[i].char, pts[i].x, pts[i].y);
         }
       }
     }
 
-    // Якщо нічого не потребує оновлення — зупиняємо RAF
     if (anyNeedsDraw || hasScroll) {
       rafId = requestAnimationFrame(animate);
     } else {
@@ -326,27 +320,33 @@
     }
   }
 
-  // ── IntersectionObserver — зупиняємо анімацію поза viewport ──
   const io = new IntersectionObserver(entries => {
     entries.forEach(e => {
       const state = instances.find(s => s.wrap === e.target);
       if (!state) return;
       state.visible = e.isIntersecting;
       if (e.isIntersecting) {
+        state.canvasRect = state.canvas.getBoundingClientRect();
         state.needsDraw = true;
         startLoop();
       }
     });
   }, { threshold: 0 });
 
-  // ── Resize ──
+  window.addEventListener('scroll', () => {
+    for (let i = 0; i < instances.length; i++) {
+      if (instances[i].visible) {
+        instances[i].canvasRect = instances[i].canvas.getBoundingClientRect();
+      }
+    }
+  }, { passive: true });
+
   let resizeT;
   window.addEventListener('resize', () => {
     clearTimeout(resizeT);
     resizeT = setTimeout(() => instances.forEach(s => loadImageSafe(s)), 250);
   });
 
-  // ── Init ──
   function init() {
     document.querySelectorAll('.ascii_wrap').forEach(wrap => {
       const state = createInstance(wrap);
@@ -354,6 +354,10 @@
         instances.push(state);
         loadImageSafe(state);
         io.observe(wrap);
+        if (state.visible) {
+          state.needsDraw = true;
+          startLoop();
+        }
       }
     });
   }
