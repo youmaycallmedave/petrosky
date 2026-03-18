@@ -134,6 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const daSteps   = Array.from({length: DA_N}, (_, i) => document.getElementById('da-s' + i));
   let daCurPct    = 0;
   let daFrame     = null;
+  let daGen       = 0;
 
   function daEaseOut(t) { return 1 - Math.pow(1 - t, 3); }
 
@@ -157,13 +158,19 @@ document.addEventListener('DOMContentLoaded', function () {
     })(t0);
   }
 
-  function daRunStep(i) {
+  function daRunStep(i, gen) {
+    if (gen !== daGen) return;
     if (i >= DA_N) {
       setTimeout(function () {
+        if (gen !== daGen) return;
         daSuccess.classList.add('visible', 'success');
         daAnimateTo(100, 800, function () {
+          if (gen !== daGen) return;
           var btn = document.getElementById('da-complete-btn');
-          if (btn) setTimeout(function () { btn.classList.add('visible'); }, 200);
+          if (btn) setTimeout(function () {
+            if (gen !== daGen) return;
+            btn.classList.add('visible');
+          }, 200);
         });
       }, 150);
       return;
@@ -171,13 +178,15 @@ document.addEventListener('DOMContentLoaded', function () {
     daSteps[i].classList.add('visible', 'active');
     daAnimateTo(((i + 1) / DA_N) * 100, DA_STEP_DELAY * 0.88);
     setTimeout(function () {
+      if (gen !== daGen) return;
       daSteps[i].classList.remove('active');
       daSteps[i].classList.add('done');
-      setTimeout(function () { daRunStep(i + 1); }, 100);
+      setTimeout(function () { daRunStep(i + 1, gen); }, 100);
     }, DA_STEP_DELAY);
   }
 
   function daReset() {
+    daGen++;
     if (daFrame) { cancelAnimationFrame(daFrame); daFrame = null; }
     daCurPct = 0;
     daFill.style.width = '0%';
@@ -193,7 +202,8 @@ document.addEventListener('DOMContentLoaded', function () {
       frame.querySelector('.title-main').textContent = 'Deploying ' + titleText;
     }
     daReset();
-    setTimeout(function () { daRunStep(0); }, 400);
+    var gen = daGen;
+    setTimeout(function () { daRunStep(0, gen); }, 400);
   }
 
   // ── Deploy list active toggle ───────────────────────────────────────────────
@@ -210,7 +220,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  setTimeout(function () { daRunStep(0); }, 400);
+  var initGen = daGen;
+  setTimeout(function () { daRunStep(0, initGen); }, 400);
 });
-
-
